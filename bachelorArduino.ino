@@ -1,29 +1,23 @@
 #include <qrcode.h>
-
 #include <SPI.h>
-
 #include "epd1in54_V2.h"
-
 #include "imagedata.h"
-
 #include "epdpaint.h"
-
 #include <stdio.h>
+#include "WiFiS3.h"
+#include "Arduino_LED_Matrix.h"
+#include "matrixFrames.h"
 
-
-Epd epd;
+#define COLORED 0
+#define UNCOLORED 1
+#define SECRET_SSID "MARCEL-OMEN-LAP-2970"
+#define SECRET_PASS "y28D66:2"
 
 unsigned char image[1024];
 
+Epd epd;
 Paint paint(image, 0, 0);
-
-unsigned long time_start_ms;
-
-unsigned long time_now_s;
-
-#define COLORED 0
-
-#define UNCOLORED 1
+ArduinoLEDMatrix matrix;
 
 //sensors
 int sensorPin = A0;
@@ -46,6 +40,8 @@ void setupMatrix() {
 }
 
 void setupAll() {
+  matrix.begin();
+
   setupPaper();
   setupWifi();
   setupMatrix();
@@ -114,7 +110,11 @@ void setup() {
 
   setupAll();
 
+  matrix.loadFrame(danger);
+
   drawQRCode();
+
+  matrix.loadFrame(heart);
 
   // Display the frame
   epd.DisplayFrame();
