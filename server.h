@@ -1,10 +1,13 @@
 #ifndef SERVER_H
 #define SERVER_H
 
-#include "WiFiS3.h"
+#include "WiFi.h"
+#include "WiFiServer.h"
 #include <ArduinoHttpClient.h>
+#include <ArduinoJson.h>
+#include <MemoryFree.h>
 
 void setupWifi();
-void sendToServer(char* finalBase64String);
+void sendToServer(char* base64, char* weight);
 
 #endif

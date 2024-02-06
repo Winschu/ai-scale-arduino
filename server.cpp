@@ -3,8 +3,8 @@
 #define SECRET_SSID "MARCEL-OMEN-LAP-2970"
 #define SECRET_PASS "y28D66:2"
 
-char ssid[] = SECRET_SSID;        // your network SSID (name)
-char pass[] = SECRET_PASS;    // your network password (use for WPA, or use as key for WEP)
+char ssid[] = SECRET_SSID;  // your network SSID (name)
+char pass[] = SECRET_PASS;  // your network password (use for WPA, or use as key for WEP)
 
 WiFiServer server(80);
 
@@ -51,16 +51,23 @@ void setupWifi() {
   Serial.println(ip);
 }
 
-void sendToServer(char* finalBase64String) {
-  size_t postDataLength = strlen(finalBase64String) + 1 + 24 + 12;
-  char postData[postDataLength];
-  snprintf(postData, postDataLength, "image_data=%s", finalBase64String);
+void sendToServer(char* base64, char* weight) {
+  Serial.print(F("Free RAM:"));
+  Serial.println(freeMemory());
 
-  Serial.print("Sending Post Data: ");
+  uint32_t postDataLength = strlen(base64) + strlen(weight) + 1 + 24 + 12;
+  char* postData = (char*)malloc(postDataLength);
+
+  if (postData == NULL) {
+    Serial.println(F("Fehler bei der Speicherreservierung."));
+    return;
+  }
+
+  snprintf(postData, postDataLength, "image_data=%s&weight=%s", base64, weight);
 
   const char* contentType = "application/x-www-form-urlencoded";
 
-  Serial.print("Post Data Size: ");
+  Serial.print(F("Post Data Size: "));
   Serial.println(strlen(postData));
 
   client.post("/upload_image", contentType, postData);
@@ -69,8 +76,10 @@ void sendToServer(char* finalBase64String) {
   int statusCode = client.responseStatusCode();
   String response = client.responseBody();
 
-  Serial.print("Status code: ");
+  Serial.print(F("Status code: "));
   Serial.println(statusCode);
-  Serial.print("Response: ");
+  Serial.print(F("Response: "));
   Serial.println(response);
+
+  free(postData);
 }

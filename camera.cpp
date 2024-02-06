@@ -10,25 +10,20 @@ uint8_t* imageBuffer;
 void initCamera() {
   SPI.begin();
   myUart.arducamUartBegin(115200);
-  myUart.send_data_pack(7, "Hello Arduino UNO!");
   myCAM.begin();
-  myUart.send_data_pack(8, "Mega start!");
 }
 
 void takePicture() {
-  // Setze Bildqualität
-  myCAM.setImageQuality(DEFAULT_QUALITY);
-
-  //myCAM.setBrightness(CAM_BRIGHTNESS_LEVEL_4);
+  myCAM.setImageQuality(HIGH_QUALITY);
 
   // Bildaufnahme
-  CamStatus status = myCAM.takePicture(CAM_IMAGE_MODE_96X96, CAM_IMAGE_PIX_FMT_JPG);
+  CamStatus status = myCAM.takePicture(CAM_IMAGE_MODE_128X128, CAM_IMAGE_PIX_FMT_JPG);
   if (status != CAM_ERR_SUCCESS) {
     Serial.println("Fehler beim Aufnehmen des Bildes.");
     return;
   }
 
-  delay(10000);
+  delay(1000);
 }
  
 void readCameraBuffer() {
@@ -44,17 +39,13 @@ void readCameraBuffer() {
   // Funktion zum Bildlesen
   uint32_t bytesRead = 0;
   while (bytesRead < totalLength) {
-    int read = myCAM.readBuff(imageBuffer + bytesRead, min(40, totalLength - bytesRead));
+    int read = myCAM.readBuff(imageBuffer + bytesRead, min(static_cast<uint32_t>(100), totalLength - bytesRead));
     if (read < 0) {
       Serial.println("Fehler beim Lesen des Bildpuffers.");
       free(imageBuffer);
       return;
     }
     bytesRead += read;
-
-    Serial.println("Total Bytes read: ");
-    Serial.print(bytesRead);
-    Serial.print("\n");
 
     // Warte auf weitere Daten (optional, je nach Implementierung der Bibliothek)
     delay(100);  // Passe die Verzögerung an, wenn erforderlich
@@ -70,9 +61,6 @@ void encodeWithProgress(char* output, char* input, size_t length) {
 
   for (size_t i = 0; i < chunks; i++) {
     Base64.encode(output + i * chunkSize, input + i * chunkSize, chunkSize);
-    Serial.print("Fortschritt: ");
-    Serial.print((i + 1) * 100 / chunks);
-    Serial.println("%");
   }
 
   // Verbleibende Daten kodieren
@@ -133,12 +121,12 @@ void setupCamera() {
 
   size_t finalBase64Length = encodedLength + strlen_P(base64Header);
   char finalBase64String[finalBase64Length];
+  char finalWeight[5];
 
   strcpy_P(finalBase64String, base64Header);
   strcat(finalBase64String, encodedString);  // Use strcat to concatenate
 
-  Serial.print("Base64: ");
-  Serial.println(finalBase64String);
+  free(encodedString);
 
-  sendToServer(finalBase64String);
+  sendToServer(finalBase64String, finalWeight);
 }
