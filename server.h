@@ -3,6 +3,7 @@
 
 #include "WiFi.h"
 #include "WiFiServer.h"
+#include "WiFiSSLClient.h"
 #include <ArduinoHttpClient.h>
 #include <ArduinoJson.h>
 #include <MemoryFree.h>

@@ -1,20 +1,30 @@
 #include "server.h"
 
 #define SECRET_SSID "MARCEL-OMEN-LAP-2970"
+//#define SECRET_SSID "MARCEL-DESKTOP-0673"
+//#define SECRET_PASS "testPasswordXXX"
 #define SECRET_PASS "y28D66:2"
 
 char ssid[] = SECRET_SSID;  // your network SSID (name)
 char pass[] = SECRET_PASS;  // your network password (use for WPA, or use as key for WEP)
 
-WiFiServer server(80);
+IPAddress serverIP;
+IPAddress local_IP(192, 168, 178, 200);
+IPAddress gateway(192, 168, 178, 1);
+IPAddress subnet(255, 255, 255, 255);
 
-char serverAddress[] = "192.168.178.105";  // server address
-int port = 5000;
+char serverAddress[] = "hs.bandowski.dev";  // server address
 
-WiFiClient wifi;
-HttpClient client = HttpClient(wifi, serverAddress, port);
+WiFiSSLClient wifi;
+HttpClient client = HttpClient(wifi, serverAddress);
 
 int status = WL_IDLE_STATUS;
+
+int HTTP_PORT = 443;
+String HTTP_METHOD = "POST";
+char HOST_NAME[] = "hs.bandowski.dev";
+String PATH_NAME = "/upload_image";
+String queryString = "?value1=26&value2=70";
 
 void setupWifi() {
   // check for the WiFi module:
@@ -52,34 +62,70 @@ void setupWifi() {
 }
 
 void sendToServer(char* base64, char* weight) {
+  Serial.print("Base64 Length: ");
+  Serial.println(strlen(base64));
+
+  Serial.print("Weight Length: ");
+  Serial.println(strlen(weight));
+
   Serial.print(F("Free RAM:"));
   Serial.println(freeMemory());
 
-  uint32_t postDataLength = strlen(base64) + strlen(weight) + 1 + 24 + 12;
-  char* postData = (char*)malloc(postDataLength);
+  uint32_t postDataLength = strlen(base64) + strlen(weight) + 1;
 
-  if (postData == NULL) {
-    Serial.println(F("Fehler bei der Speicherreservierung."));
-    return;
+  Serial.print(F("Connect to Server: "));
+  Serial.println(serverAddress);
+
+  if (client.connect(HOST_NAME, HTTP_PORT)) {
+    // if connected:
+    Serial.println("Connected to server");
+    // make a HTTP request:
+    // send HTTP header
+    client.print(HTTP_METHOD);
+    client.print(" ");
+    client.print(PATH_NAME);
+    client.println(" HTTP/1.1");
+    client.print("Host: ");
+    client.println(HOST_NAME);
+    client.println("Connection: close");
+    client.print("Content-Length: ");
+    client.println(postDataLength);
+    client.println("Content-Type: application/x-www-form-urlencoded");
+    client.println();  // end HTTP header
+
+    // send HTTP body
+    client.print("image_data=");
+    client.print(base64);
+    client.print("&weight=");
+    client.println(weight);
+
+    String receivedData = ""; // String zum Speichern der empfangenen Daten
+
+    while (client.connected()) {
+      if (client.available()) {
+        // read an incoming byte from the server:
+        char c = client.read();
+        // add the incoming byte to the receivedData string:
+        receivedData += c;
+      }
+    }
+
+    // Verbindung wurde geschlossen, den gesamten empfangenen Inhalt ausgeben:
+    Serial.println("Empfangene Daten:");
+    Serial.println(receivedData);
+
+    // the server's disconnected, stop the client:
+    client.stop();
+    Serial.println();
+    Serial.println("disconnected");
+  } else {  // if not connected:
+    Serial.println("connection failed");
   }
 
-  snprintf(postData, postDataLength, "image_data=%s&weight=%s", base64, weight);
-
-  const char* contentType = "application/x-www-form-urlencoded";
-
-  Serial.print(F("Post Data Size: "));
-  Serial.println(strlen(postData));
-
-  client.post("/upload_image", contentType, postData);
-
-  // read the status code and body of the response
-  int statusCode = client.responseStatusCode();
-  String response = client.responseBody();
-
-  Serial.print(F("Status code: "));
-  Serial.println(statusCode);
-  Serial.print(F("Response: "));
-  Serial.println(response);
-
-  free(postData);
+  if (WiFi.hostByName(serverAddress, serverIP)) {
+    Serial.print("Server IP Address: ");
+    Serial.println(serverIP.toString());
+  } else {
+    Serial.println("Failed to resolve server address");
+  }
 }

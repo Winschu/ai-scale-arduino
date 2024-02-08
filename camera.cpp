@@ -109,13 +109,13 @@ void setupCamera() {
   // Überprüfen, ob das base64-Format gültig ist
   if (isValidBase64(encodedString)) {
     Serial.println("Das base64-Format ist gültig.");
+    Serial.print("Encoded String Length: ");
+    Serial.println(strlen(encodedString));
   } else {
     Serial.println("Das base64-Format ist ungültig.");
     free(encodedString);  // Geben Sie den kodierten String frei, bevor Sie die Funktion beenden
     return;  // Beenden Sie die Funktion hier, wenn das base64 ungültig ist
   }
-
-  Serial.println("Starting POST request");
 
   const char base64Header[] PROGMEM = "data:image/jpeg;base64,";
 
@@ -127,6 +127,8 @@ void setupCamera() {
   strcat(finalBase64String, encodedString);  // Use strcat to concatenate
 
   free(encodedString);
+
+  Serial.println("Starting POST request");
 
   sendToServer(finalBase64String, finalWeight);
 }
