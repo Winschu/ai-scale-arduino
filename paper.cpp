@@ -18,43 +18,48 @@ void setupPaper() {
 }
 
 void drawQRCode(char* content) {
-  Serial.println("Start Drawing");
+  Serial.println(F("Start Drawing"));
 
   QRCode qrcode;
-  uint8_t* qrcodeData = (uint8_t*)malloc(qrcode_getBufferSize(5));
+  uint8_t* qrcodeData = (uint8_t*)malloc(qrcode_getBufferSize(1));
+  if (qrcodeData == NULL) {
+    Serial.println(F("Failed to allocate memory for qrcodeData"));
+    return;
+  }
 
-  Serial.println("QR Code Init");
+  Serial.println(F("QR Code Init"));
 
-  Serial.print("Content: ");
-  Serial.println(content);
-
-  Serial.print("Content Length: ");
+  Serial.print(F("Content Length: "));
   Serial.println(strlen(content));
 
-  qrcode_initText(&qrcode, qrcodeData, 5, 0, content);
+  qrcode_initText(&qrcode, qrcodeData, 1, 0, content);
+
+  Serial.println(F("After Init Text"));
 
   // Set the total height of the QR code
-  int totalHeight = qrcode.size;  // One row at a time
+  const int totalHeight = qrcode.size;  // One row at a time
 
   // Anzahl der Quadrate in einer Reihe
-  int numSquares = 4;  // Reduced for a smaller size
+  const int numSquares = 4;  // Reduced for a smaller size
 
   // Breite eines Quadrats
-  int squareWidth = 4;  // Reduced for a smaller size
+  const int squareWidth = 4;  // Reduced for a smaller size
 
   // Höhe der Quadrate
-  int squareHeight = 4;  // Reduced for a smaller size
+  const int squareHeight = 4;  // Reduced for a smaller size
 
   // Adjust the aspect ratio for the QR code modules
-  float aspectRatioX = 1.0;
-  float aspectRatioY = 1.0;
+  const float aspectRatioX = 1.0;
+  const float aspectRatioY = 1.0;
 
   // Calculate pixel sizes based on the aspect ratio
-  int pixelSizeX = squareWidth * aspectRatioX;
-  int pixelSizeY = squareHeight * aspectRatioY;
+  const int pixelSizeX = squareWidth * aspectRatioX;
+  const int pixelSizeY = squareHeight * aspectRatioY;
 
   // Loop through each row of the QR code
   for (int y = 0; y < totalHeight; y++) {
+    Serial.print(F("y: "));
+    Serial.println(y);
     // Set the current draw area for one row
     paint.SetWidth(200);
     paint.SetHeight(pixelSizeY);
@@ -83,6 +88,10 @@ void drawQRCode(char* content) {
     int yPos = y * pixelSizeY;
     epd.SetFrameMemory(paint.GetImage(), 0, yPos, paint.GetWidth(), paint.GetHeight());
   }
+
+  free(qrcodeData);  // Don't forget to free the memory!
+
+  displayFrame();
 }
 
 void displayFrame() {

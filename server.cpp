@@ -17,7 +17,6 @@ int status = WL_IDLE_STATUS;
 int HTTP_PORT = 443;
 String HTTP_METHOD = "POST";
 char HOST_NAME[] = "hs.bandowski.dev";
-String PATH_NAME = "/upload_image";
 
 void setupWifi() {
   // attempt to connect to WiFi network:
@@ -64,15 +63,6 @@ void sendToServer(char* base64, char* weight) {
     Serial.println("Ping failed!");
   }
 
-  Serial.println("making POST request");
-  char contentType[] = "application/x-www-form-urlencoded";
-
-  // Ausgabe der Längen von base64 und weight
-  Serial.print("Length of base64: ");
-  Serial.println(strlen(base64));
-  Serial.print("Length of weight: ");
-  Serial.println(strlen(weight));
-
   // Fügen Sie den base64Header aus PROGMEM hinzu
   char base64WithHeader[strlen_P(base64Header) + strlen(base64) + 1];
   strcpy_P(base64WithHeader, base64Header);
@@ -97,16 +87,18 @@ void sendToServer(char* base64, char* weight) {
   client.print(postData);  // Hier werden die POST-Daten in den Body der Anforderung geschrieben
   client.endRequest();
 
+  Serial.print(F("Free Memory after Client Send: "));
+  Serial.println(freeMemory());
+
   int statusCode = client.responseStatusCode();
-  Serial.print("Status code: ");
+  Serial.print(F("Status code: "));
   Serial.println(statusCode);
 
   // Verwenden Sie ein char-Array anstelle eines String-Objekts für die Antwort
   char response[client.available() + 1];
   int bytesRead = client.read((uint8_t*)response, client.available());
   response[bytesRead] = '\0';  // Nullterminator hinzufügen
-  Serial.print("Response: ");
-  Serial.println(response);
 
+  drawQRCode(response);
   //delay(10000);
 }

@@ -9,6 +9,7 @@
 #include "epdpaint.h"
 #include <qrcode.h>
 #include "Base64.h"
+#include <MemoryFree.h>
 
 void setupPaper();
 void drawQRCode(char* content);
