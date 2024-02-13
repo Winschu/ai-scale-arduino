@@ -58,31 +58,32 @@ void sendToServer(char* base64, char* weight) {
   if (pingTime >= 0) {
     Serial.print(F("Ping successful! Response time: "));
     Serial.print(pingTime);
-    Serial.println(" ms");
+    Serial.println(F(" ms"));
   } else {
-    Serial.println("Ping failed!");
+    Serial.println(F("Ping failed!"));
+    return;
   }
 
   // Fügen Sie den base64Header aus PROGMEM hinzu
   char base64WithHeader[strlen_P(base64Header) + strlen(base64) + 1];
   strcpy_P(base64WithHeader, base64Header);
-  strcat(base64WithHeader, base64);
+  strncat(base64WithHeader, base64, sizeof(base64WithHeader) - strlen(base64Header) - 1);
 
   // Berechnen Sie die Länge der POST-Daten
   int postDataLength = strlen("image_data=") + strlen(base64WithHeader) + strlen("&weight=") + strlen(weight);
 
-  char postData[postDataLength + 100];  // Array für die POST-Daten
+  char postData[postDataLength + 1];  // Array für die POST-Daten
 
   // Formatieren Sie die POST-Daten mit sprintf
-  sprintf(postData, "image_data=%s&weight=%s", base64WithHeader, weight);
+  snprintf(postData, sizeof(postData), "image_data=%s&weight=%s", base64WithHeader, weight);
 
   Serial.print(F("Post Data Length: "));
   Serial.println(strlen(postData));
 
   client.beginRequest();
   client.post(PATH_NAME);
-  client.sendHeader("Content-Type", contentType);
-  client.sendHeader("Content-Length", strlen(postData));
+  client.sendHeader(F("Content-Type"), contentType);
+  client.sendHeader(F("Content-Length"), strlen(postData));
   client.beginBody();
   client.print(postData);  // Hier werden die POST-Daten in den Body der Anforderung geschrieben
   client.endRequest();
@@ -98,7 +99,7 @@ void sendToServer(char* base64, char* weight) {
   char response[client.available() + 1];
   int bytesRead = client.read((uint8_t*)response, client.available());
   response[bytesRead] = '\0';  // Nullterminator hinzufügen
-
   drawQRCode(response);
-  //delay(10000);
 }
+
+

@@ -32,7 +32,7 @@ void drawQRCode(char* content) {
   Serial.print(F("Content Length: "));
   Serial.println(strlen(content));
 
-  qrcode_initText(&qrcode, qrcodeData, 1, 0, content);
+  qrcode_initText(&qrcode, qrcodeData, 1, 0, "XXX");
 
   Serial.println(F("After Init Text"));
 
