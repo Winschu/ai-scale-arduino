@@ -3,6 +3,7 @@
 
 #include <SPI.h>
 #include <stdio.h>
+#include <stdint.h>
 #include "epd1in54_V2.h"
 #include "imagedata.h"
 #include "epdpaint.h"

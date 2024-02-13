@@ -7,6 +7,8 @@ ArducamLink myUart;
 uint32_t totalLength;
 uint8_t* imageBuffer;
 
+char* finalBase64String;
+
 void initCamera() {
   SPI.begin();
   myUart.arducamUartBegin(115200);
@@ -15,62 +17,60 @@ void initCamera() {
 
 void takePicture() {
   myCAM.setImageQuality(HIGH_QUALITY);
+  myCAM.setColorEffect(CAM_COLOR_FX_NONE);
+  myCAM.setAutoWhiteBalanceMode(CAM_WHITE_BALANCE_MODE_OFFICE);
+  myCAM.setBrightness(CAM_BRIGHTNESS_LEVEL_DEFAULT);
 
   // Bildaufnahme
-  CamStatus status = myCAM.takePicture(CAM_IMAGE_MODE_128X128, CAM_IMAGE_PIX_FMT_JPG);
+  CamStatus status = myCAM.takePicture(CAM_IMAGE_MODE_96X96, CAM_IMAGE_PIX_FMT_JPG);
   if (status != CAM_ERR_SUCCESS) {
-    Serial.println("Fehler beim Aufnehmen des Bildes.");
+    Serial.println(F("Fehler beim Aufnehmen des Bildes."));
     return;
   }
 
   delay(1000);
 }
- 
+
 void readCameraBuffer() {
-  // Lies den gesamten Bildpuffer
   totalLength = myCAM.getTotalLength();
-  imageBuffer = (uint8_t*)malloc(totalLength);  // Verwenden Sie dynamischen Speicher
+
+  // Festlegen der Puffergröße auf die minimale erforderliche Größe
+  uint32_t bufferSize = min(totalLength, static_cast<uint32_t>(100));
+
+  imageBuffer = (uint8_t*)malloc(bufferSize);
 
   if (imageBuffer == NULL) {
-    Serial.println("Nicht genug Speicher zum Allokieren des Bildpuffers.");
+    Serial.println(F("Nicht genug Speicher zum Allokieren des Bildpuffers."));
     return;
   }
 
-  // Funktion zum Bildlesen
   uint32_t bytesRead = 0;
   while (bytesRead < totalLength) {
     int read = myCAM.readBuff(imageBuffer + bytesRead, min(static_cast<uint32_t>(100), totalLength - bytesRead));
     if (read < 0) {
-      Serial.println("Fehler beim Lesen des Bildpuffers.");
+      Serial.println(F("Fehler beim Lesen des Bildpuffers."));
       free(imageBuffer);
       return;
     }
     bytesRead += read;
 
-    // Warte auf weitere Daten (optional, je nach Implementierung der Bibliothek)
-    delay(100);  // Passe die Verzögerung an, wenn erforderlich
+    delay(100);
   }
-
-  Serial.print("Image Unread Length after reading: ");
-  Serial.println(myCAM.getReceivedLength());
 }
 
-void encodeWithProgress(char* output, char* input, size_t length) {
-  size_t chunkSize = 8192;  // Größe der Datenblöcke, die auf einmal kodiert werden
-  size_t chunks = length / chunkSize;
+void encodeToBase64(char* output, char* input, size_t length) {
+  // Kodieren der gesamten Eingabe auf einmal
+  int encodedBytes = Base64.encode(output, input, length);
 
-  for (size_t i = 0; i < chunks; i++) {
-    Base64.encode(output + i * chunkSize, input + i * chunkSize, chunkSize);
+  // Überprüfen auf Fehler bei der Kodierung
+  if (encodedBytes < 0) {
+    Serial.println(F("Fehler bei der Base64-Kodierung."));
+    return;
   }
 
-  // Verbleibende Daten kodieren
-  size_t remaining = length % chunkSize;
-  if (remaining > 0) {
-    Base64.encode(output + chunks * chunkSize, input + chunks * chunkSize, remaining);
-  }
-
-  Serial.println("Base64-Kodierung abgeschlossen.");
+  Serial.println(F("Base64-Kodierung abgeschlossen."));
 }
+
 
 bool isValidBase64(char* base64String) {
   const char* validChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
@@ -82,53 +82,27 @@ bool isValidBase64(char* base64String) {
   return true;
 }
 
-void setupCamera() {
+char* setupCamera() {
   takePicture();
-
   readCameraBuffer();
 
   // Base64-Konvertierung
-  int encodedLength = Base64.encodedLength(totalLength);
-  char* encodedString = (char*)malloc(encodedLength + 1);  // Verwenden Sie dynamischen Speicher
+  size_t imageLength = totalLength;
+  int encodedLength = Base64.encodedLength(imageLength);
+  char* encodedString = (char*)malloc(encodedLength + 1); // Dynamische Speicherzuweisung
 
-  if (encodedString == NULL) {
-    Serial.println("Nicht genug Speicher zum Allokieren des kodierten Strings.");
-    free(imageBuffer);  // Geben Sie den Bildpuffer frei, bevor Sie die Funktion beenden
-    return;
+  if (encodedString == nullptr) {
+    Serial.println("Nicht genug Speicher für die Base64-Kodierung.");
+    return nullptr;
   }
 
-  Serial.println("Getting base64 value...");
+  encodeToBase64(encodedString, reinterpret_cast<char*>(imageBuffer), imageLength);
+  free(imageBuffer); // Freigabe des dynamisch allokierten Speichers
 
-  encodeWithProgress(encodedString, reinterpret_cast<char*>(imageBuffer), totalLength);
-
-  // Geben Sie den Bildpuffer frei, da er nicht mehr benötigt wird
-  free(imageBuffer);
-
-  Serial.println("Checking base64 for validity...");
-
-  // Überprüfen, ob das base64-Format gültig ist
-  if (isValidBase64(encodedString)) {
-    Serial.println("Das base64-Format ist gültig.");
-    Serial.print("Encoded String Length: ");
-    Serial.println(strlen(encodedString));
-  } else {
-    Serial.println("Das base64-Format ist ungültig.");
-    free(encodedString);  // Geben Sie den kodierten String frei, bevor Sie die Funktion beenden
-    return;  // Beenden Sie die Funktion hier, wenn das base64 ungültig ist
-  }
-
-  const char base64Header[] PROGMEM = "data:image/jpeg;base64,";
-
-  size_t finalBase64Length = encodedLength + strlen_P(base64Header);
-  char finalBase64String[finalBase64Length];
-  char finalWeight[5];
-
-  strcpy_P(finalBase64String, base64Header);
-  strcat(finalBase64String, encodedString);  // Use strcat to concatenate
-
-  free(encodedString);
-
-  Serial.println("Starting POST request");
-
-  sendToServer(finalBase64String, finalWeight);
+  return encodedString;
 }
+
+
+
+
+

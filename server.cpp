@@ -1,21 +1,18 @@
 #include "server.h"
 
+#include "paper.h"
+
 #define SECRET_SSID "MARCEL-OMEN-LAP-2970"
-//#define SECRET_SSID "MARCEL-DESKTOP-0673"
-//#define SECRET_PASS "testPasswordXXX"
 #define SECRET_PASS "y28D66:2"
 
 char ssid[] = SECRET_SSID;  // your network SSID (name)
 char pass[] = SECRET_PASS;  // your network password (use for WPA, or use as key for WEP)
 
 IPAddress serverIP;
-IPAddress local_IP(192, 168, 178, 200);
-IPAddress gateway(192, 168, 178, 1);
-IPAddress subnet(255, 255, 255, 255);
 
 char serverAddress[] = "hs.bandowski.dev";  // server address
 
-WiFiSSLClient wifi;
+WiFiClient wifi;
 HttpClient client = HttpClient(wifi, serverAddress);
 
 int status = WL_IDLE_STATUS;
@@ -24,7 +21,6 @@ int HTTP_PORT = 443;
 String HTTP_METHOD = "POST";
 char HOST_NAME[] = "hs.bandowski.dev";
 String PATH_NAME = "/upload_image";
-String queryString = "?value1=26&value2=70";
 
 void setupWifi() {
   // check for the WiFi module:
@@ -61,65 +57,139 @@ void setupWifi() {
   Serial.println(ip);
 }
 
+long pingServer(const char* host, int port) {
+  WiFiClient client;
+
+  unsigned long startTime = millis();
+  if (!client.connect(host, port)) {
+    return -1;
+  }
+  unsigned long endTime = millis();
+
+  client.stop();
+  return endTime - startTime;
+}
+
 void sendToServer(char* base64, char* weight) {
-  Serial.print("Base64 Length: ");
-  Serial.println(strlen(base64));
+  uint32_t postDataLength = strlen(base64) + strlen(weight) + 1 + 10;
 
-  Serial.print("Weight Length: ");
-  Serial.println(strlen(weight));
-
-  Serial.print(F("Free RAM:"));
-  Serial.println(freeMemory());
-
-  uint32_t postDataLength = strlen(base64) + strlen(weight) + 1;
-
-  Serial.print(F("Connect to Server: "));
+  Serial.print(F("Try to connect to Server: "));
   Serial.println(serverAddress);
 
-  if (client.connect(HOST_NAME, HTTP_PORT)) {
-    // if connected:
-    Serial.println("Connected to server");
-    // make a HTTP request:
-    // send HTTP header
+  Serial.print(F("Post Data Length: "));
+  Serial.println(postDataLength);
+
+  long pingTime = pingServer(HOST_NAME, HTTP_PORT);
+  if (pingTime >= 0) {
+    Serial.print(F("Ping successful! Response time: "));
+    Serial.print(pingTime);
+    Serial.println(" ms");
+  } else {
+    Serial.println("Ping failed!");
+  }
+
+  int serverConnection = client.connect(HOST_NAME, HTTP_PORT);
+
+  Serial.print("Server Connection: ");
+  Serial.println(serverConnection);
+
+  if (serverConnection) {
+    Serial.print(F("Connected to server: "));
+    Serial.println(client.connected());
+
+    Serial.println(F("Sending HTTP header..."));
+    Serial.println(HTTP_METHOD);
+
     client.print(HTTP_METHOD);
     client.print(" ");
     client.print(PATH_NAME);
     client.println(" HTTP/1.1");
     client.print("Host: ");
     client.println(HOST_NAME);
-    client.println("Connection: close");
+    client.println("Content-Type: application/x-www-form-urlencoded");
+    client.println();
     client.print("Content-Length: ");
     client.println(postDataLength);
-    client.println("Content-Type: application/x-www-form-urlencoded");
-    client.println();  // end HTTP header
+    client.println("Connection: close");
 
-    // send HTTP body
+    // Überprüfen, ob die Header erfolgreich gesendet wurden
+    if (!client.connected()) {
+      Serial.println(F("Fehler beim Senden der Header"));
+      return;
+    }
+
+    delay(1000);
+
+    Serial.print(F("Free Memory after HTTP Header Data: "));
+    Serial.println(freeMemory());
+
+    Serial.println(F("Sending Body data..."));
+
     client.print("image_data=");
     client.print(base64);
     client.print("&weight=");
     client.println(weight);
 
-    String receivedData = ""; // String zum Speichern der empfangenen Daten
+    Serial.print(F("Free Memory after HTTP Body Data: "));
+    Serial.println(freeMemory());
 
-    while (client.connected()) {
+    // Eine kurze Verzögerung, um sicherzustellen, dass der Body vollständig gesendet wurde
+    delay(1000);
+
+    // Body senden
+
+    // Warten, bis Daten vom Server empfangen wurden
+    unsigned long timeout = millis() + 5000; // Timeout nach 5 Sekunden
+    while (millis() < timeout) {
       if (client.available()) {
-        // read an incoming byte from the server:
-        char c = client.read();
-        // add the incoming byte to the receivedData string:
-        receivedData += c;
+        // Daten vom Server empfangen
+        break;
       }
     }
 
-    // Verbindung wurde geschlossen, den gesamten empfangenen Inhalt ausgeben:
-    Serial.println("Empfangene Daten:");
-    Serial.println(receivedData);
+    // Überprüfen, ob Daten empfangen wurden oder das Timeout erreicht wurde
+    if (millis() >= timeout) {
+      Serial.println(F("Timeout beim Warten auf Daten vom Server"));
+    } else {
+      // Daten erfolgreich empfangen, Verbindung schließen
+      client.stop();
+      Serial.println(F("Daten erfolgreich empfangen, Verbindung geschlossen"));
+    }
+
+
+    const size_t maxDataLength = 4096;  // Maximal zulässige Länge der empfangenen Daten
+    char receivedData[maxDataLength];   // Puffer zum Speichern der empfangenen Daten
+    size_t dataIndex = 0;               // Index für das Hinzufügen von Zeichen in den Puffer
+
+    while ((client.connected() || client.available()) && dataIndex < maxDataLength - 1) {
+      if (client.available()) {
+        char c = client.read();
+        receivedData[dataIndex] = c;
+        dataIndex++;
+      } else {
+        Serial.println(F("Client not available anymore"));
+      }
+    }
+
+    // Nullterminator hinzufügen, um den Puffer als eine gültige Zeichenkette zu beenden
+    receivedData[dataIndex] = '\0';
+
+    // Überprüfe, ob Daten empfangen wurden, bevor sie gedruckt werden
+    if (dataIndex > 0) {
+      Serial.println(receivedData);
+    } else {
+      Serial.println("No data received!");
+    }
 
     // the server's disconnected, stop the client:
     client.stop();
     Serial.println();
     Serial.println("disconnected");
   } else {  // if not connected:
-    Serial.println("connection failed");
+    Serial.println(F("connection failed on "));
+    Serial.print(HOST_NAME);
+    Serial.print(" @ ");
+    Serial.println(HTTP_PORT);
   }
 
   if (WiFi.hostByName(serverAddress, serverIP)) {

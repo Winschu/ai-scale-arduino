@@ -6,6 +6,7 @@
 unsigned char image[1024];
 Epd epd;
 Paint paint(image, 0, 0);
+QRCode qrcode;
 
 void setupPaper() {
   epd.LDirInit();
@@ -17,22 +18,32 @@ void setupPaper() {
 }
 
 void drawQRCode(char* content) {
-  QRCode qrcode;
-  uint8_t qrcodeData[qrcode_getBufferSize(3)];
+  Serial.println("Start Drawing");
 
-  qrcode_initText(&qrcode, qrcodeData, 3, 0, content);
+  QRCode qrcode;
+  uint8_t* qrcodeData = (uint8_t*)malloc(qrcode_getBufferSize(5));
+
+  Serial.println("QR Code Init");
+
+  Serial.print("Content: ");
+  Serial.println(content);
+
+  Serial.print("Content Length: ");
+  Serial.println(strlen(content));
+
+  qrcode_initText(&qrcode, qrcodeData, 5, 0, content);
 
   // Set the total height of the QR code
   int totalHeight = qrcode.size;  // One row at a time
 
   // Anzahl der Quadrate in einer Reihe
-  int numSquares = 5;  // Reduced for a smaller size
+  int numSquares = 4;  // Reduced for a smaller size
 
   // Breite eines Quadrats
-  int squareWidth = 5;  // Reduced for a smaller size
+  int squareWidth = 4;  // Reduced for a smaller size
 
   // Höhe der Quadrate
-  int squareHeight = 5;  // Reduced for a smaller size
+  int squareHeight = 4;  // Reduced for a smaller size
 
   // Adjust the aspect ratio for the QR code modules
   float aspectRatioX = 1.0;

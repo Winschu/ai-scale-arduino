@@ -18,19 +18,31 @@ void setupAll() {
 void setup() {
   Serial.begin(115200);
 
+  Serial.print(F("Free Memory at Start: "));
+  Serial.println(freeMemory());
+
   setupAll();
+
+  Serial.print(F("Free Memory after inital Setup: "));
+  Serial.println(freeMemory());
 
   showDanger();
 
-  setupCamera();
+  char* base64 = nullptr;
+  base64 = setupCamera();
 
-  char value[5] = "test";
+  Serial.print(F("Free Memory after Camera: "));
+  Serial.println(freeMemory());
 
-  drawQRCode(value);
+  if (base64 == nullptr) {
+    Serial.println(F("Base 64 Null-Pointer returnd"));
+  }
 
-  showHeart();
+  char finalWeight[5];
 
-  displayFrame();
+  sendToServer(base64, finalWeight);
+
+  free(base64);
 }
 
 void loop() {
