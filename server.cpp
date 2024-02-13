@@ -1,48 +1,34 @@
 #include "server.h"
 #include "paper.h"
 
-#define SECRET_SSID "MARCEL-OMEN-LAP-2970"
-#define SECRET_PASS "y28D66:2"
-
-char ssid[] = SECRET_SSID;  // your network SSID (name)
-char pass[] = SECRET_PASS;  // your network password (use for WPA, or use as key for WEP)
-
-char serverAddress[] = "hs.bandowski.dev";  // server address
-
 WiFiClient wifi;
-HttpClient client = HttpClient(wifi, serverAddress);
+HttpClient client = HttpClient(wifi, HOST_NAME);
 
-int status = WL_IDLE_STATUS;
-
-int HTTP_PORT = 443;
-String HTTP_METHOD = "POST";
-char HOST_NAME[] = "hs.bandowski.dev";
+int wifiStatusLED PROGMEM = WL_IDLE_STATUS;
 
 void setupWifi() {
   // attempt to connect to WiFi network:
-  while (status != WL_CONNECTED) {
+  while (wifiStatusLED != WL_CONNECTED) {
     Serial.print("Attempting to connect to Network named: ");
     Serial.println(ssid);  // print the network name (SSID);
 
     // Connect to WPA/WPA2 network. Change this line if using open or WEP network:
-    status = WiFi.begin(ssid, pass);
+    wifiStatusLED = WiFi.begin(ssid, pass);
     // wait 10 seconds for connection:
     delay(10);
   }
 
   // print the SSID of the network you're attached to:
-  Serial.print("SSID: ");
+  Serial.print(F("SSID: "));
   Serial.println(WiFi.SSID());
 
   // print your WiFi shield's IP address:
-  IPAddress ip = WiFi.localIP();
-  Serial.print("IP Address: ");
-  Serial.println(ip);
+  Serial.print(F("IP Address: "));
+  Serial.println(WiFi.localIP());
 }
 
 long pingServer(const char* host, int port) {
-  WiFiClient client;
-
+  WiFiClient wifi;
   unsigned long startTime = millis();
   if (!client.connect(host, port)) {
     return -1;
@@ -53,7 +39,7 @@ long pingServer(const char* host, int port) {
   return endTime - startTime;
 }
 
-void sendToServer(char* base64, char* weight) {
+char* sendToServer(char* base64, char* weight) {
   long pingTime = pingServer(HOST_NAME, HTTP_PORT);
   if (pingTime >= 0) {
     Serial.print(F("Ping successful! Response time: "));
@@ -61,10 +47,9 @@ void sendToServer(char* base64, char* weight) {
     Serial.println(F(" ms"));
   } else {
     Serial.println(F("Ping failed!"));
-    return;
+    return nullptr;
   }
 
-  // Fügen Sie den base64Header aus PROGMEM hinzu
   char base64WithHeader[strlen_P(base64Header) + strlen(base64) + 1];
   strcpy_P(base64WithHeader, base64Header);
   strncat(base64WithHeader, base64, sizeof(base64WithHeader) - strlen(base64Header) - 1);
@@ -73,9 +58,10 @@ void sendToServer(char* base64, char* weight) {
   int postDataLength = strlen("image_data=") + strlen(base64WithHeader) + strlen("&weight=") + strlen(weight);
 
   char postData[postDataLength + 1];  // Array für die POST-Daten
-
-  // Formatieren Sie die POST-Daten mit sprintf
-  snprintf(postData, sizeof(postData), "image_data=%s&weight=%s", base64WithHeader, weight);
+  strcpy(postData, "image_data=");
+  strcat(postData, base64WithHeader);
+  strcat(postData, "&weight=");
+  strcat(postData, weight);
 
   Serial.print(F("Post Data Length: "));
   Serial.println(strlen(postData));
@@ -95,11 +81,25 @@ void sendToServer(char* base64, char* weight) {
   Serial.print(F("Status code: "));
   Serial.println(statusCode);
 
+  char* response = (char*)malloc(client.available() + 1);
+  if (response == nullptr) {
+    Serial.println("Nicht genug Speicher für die Antwort.");
+    return nullptr;
+  }
+
   // Verwenden Sie ein char-Array anstelle eines String-Objekts für die Antwort
-  char response[client.available() + 1];
   int bytesRead = client.read((uint8_t*)response, client.available());
   response[bytesRead] = '\0';  // Nullterminator hinzufügen
-  drawQRCode(response);
+
+  // Suchen Sie nach dem Beginn des Antwortkörpers und schneiden Sie den HTTP-Overhead ab
+  char* bodyStart = strstr(response, "\r\n\r\n");
+  if (bodyStart != nullptr) {
+    bodyStart += 4;  // Überspringen Sie die Zeilenumbrüche
+    memmove(response, bodyStart, strlen(bodyStart) + 1);  // Verschieben Sie den Antwortkörper an den Anfang des Arrays
+  }
+
+  Serial.print(F("Response length: "));
+  Serial.println(strlen(response));
+
+  return response;
 }
-
-

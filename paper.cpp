@@ -17,11 +17,27 @@ void setupPaper() {
   paint.Clear(UNCOLORED);
 }
 
+void filterAlphaNumeric(char* content) {
+  char* src = content;
+  char* dst = content;
+
+  while (*src) {
+    // Behalten Sie nur alphanumerische Zeichen und Leerzeichen bei
+    if (isalnum((unsigned char)*src) || *src == ' ') {
+      *dst++ = *src;
+    }
+    src++;
+  }
+  *dst = '\0';  // Fügen Sie einen Nullterminator hinzu
+}
+
 void drawQRCode(char* content) {
   Serial.println(F("Start Drawing"));
 
+  filterAlphaNumeric(content);
+
   QRCode qrcode;
-  uint8_t* qrcodeData = (uint8_t*)malloc(qrcode_getBufferSize(1));
+  uint8_t* qrcodeData = (uint8_t*)malloc(qrcode_getBufferSize(8));
   if (qrcodeData == NULL) {
     Serial.println(F("Failed to allocate memory for qrcodeData"));
     return;
@@ -32,7 +48,12 @@ void drawQRCode(char* content) {
   Serial.print(F("Content Length: "));
   Serial.println(strlen(content));
 
-  qrcode_initText(&qrcode, qrcodeData, 1, 0, "XXX");
+  Serial.print(F("Free Memory before QR-Code init: "));
+  Serial.println(freeMemory());
+
+  const char *data = "Hello, world!";
+
+  qrcode_initText(&qrcode, qrcodeData, 8, ECC_LOW, content);
 
   Serial.println(F("After Init Text"));
 
@@ -58,8 +79,8 @@ void drawQRCode(char* content) {
 
   // Loop through each row of the QR code
   for (int y = 0; y < totalHeight; y++) {
-    Serial.print(F("y: "));
-    Serial.println(y);
+    //Serial.print(F("y: "));
+    //Serial.println(y);
     // Set the current draw area for one row
     paint.SetWidth(200);
     paint.SetHeight(pixelSizeY);

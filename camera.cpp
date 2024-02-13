@@ -73,7 +73,6 @@ void encodeToBase64(char* output, char* input, size_t length) {
 
 
 bool isValidBase64(char* base64String) {
-  const char* validChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
   for (size_t i = 0; i < strlen(base64String); i++) {
     if (strchr(validChars, base64String[i]) == NULL) {
       return false;
@@ -86,6 +85,9 @@ char* setupCamera() {
   takePicture();
   readCameraBuffer();
 
+  Serial.print(F("Free Memory after Reading Camera Buffer: "));
+  Serial.println(freeMemory());
+
   // Base64-Konvertierung
   size_t imageLength = totalLength;
   int encodedLength = Base64.encodedLength(imageLength);
@@ -95,6 +97,9 @@ char* setupCamera() {
     Serial.println("Nicht genug Speicher für die Base64-Kodierung.");
     return nullptr;
   }
+
+  Serial.print(F("Free Memory after Encoding String: "));
+  Serial.println(freeMemory());
 
   encodeToBase64(encodedString, reinterpret_cast<char*>(imageBuffer), imageLength);
   free(imageBuffer); // Freigabe des dynamisch allokierten Speichers

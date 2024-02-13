@@ -28,8 +28,7 @@ void setup() {
 
   showDanger();
 
-  char* base64 = nullptr;
-  base64 = setupCamera();
+  char* base64 = setupCamera();
 
   Serial.print(F("Free Memory after Camera: "));
   Serial.println(freeMemory());
@@ -40,10 +39,20 @@ void setup() {
 
   char finalWeight[5];
 
-  sendToServer(base64, finalWeight);
+  char* response = sendToServer(base64, finalWeight);
 
   free(finalWeight);
   free(base64);
+
+  Serial.print(F("Free Memory after Send To Server: "));
+  Serial.println(freeMemory());
+
+  Serial.print(F("Response length before QR-Code: "));
+  Serial.println(strlen(response));
+
+  drawQRCode(response);
+
+  free(response);
 }
 
 void loop() {

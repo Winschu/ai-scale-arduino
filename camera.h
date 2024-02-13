@@ -7,6 +7,8 @@
 #include "Base64.h"
 #include <MemoryFree.h>
 
+const char validChars[] PROGMEM = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+
 void initCamera();
 void takePicture();
 void readCameraBuffer();
