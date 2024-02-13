@@ -42,6 +42,7 @@ void setup() {
 
   sendToServer(base64, finalWeight);
 
+  free(finalWeight);
   free(base64);
 }
 

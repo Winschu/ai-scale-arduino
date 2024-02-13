@@ -7,8 +7,6 @@
 #include "Base64.h"
 #include <MemoryFree.h>
 
-const char base64Header[] PROGMEM = "data:image/jpeg;base64,";
-
 void initCamera();
 void takePicture();
 void readCameraBuffer();

@@ -22,7 +22,7 @@ void takePicture() {
   myCAM.setBrightness(CAM_BRIGHTNESS_LEVEL_DEFAULT);
 
   // Bildaufnahme
-  CamStatus status = myCAM.takePicture(CAM_IMAGE_MODE_96X96, CAM_IMAGE_PIX_FMT_JPG);
+  CamStatus status = myCAM.takePicture(CAM_IMAGE_MODE_128X128, CAM_IMAGE_PIX_FMT_JPG);
   if (status != CAM_ERR_SUCCESS) {
     Serial.println(F("Fehler beim Aufnehmen des Bildes."));
     return;
@@ -35,7 +35,7 @@ void readCameraBuffer() {
   totalLength = myCAM.getTotalLength();
 
   // Festlegen der Puffergröße auf die minimale erforderliche Größe
-  uint32_t bufferSize = min(totalLength, static_cast<uint32_t>(100));
+  uint32_t bufferSize = min(totalLength, static_cast<uint32_t>(4096));
 
   imageBuffer = (uint8_t*)malloc(bufferSize);
 
@@ -46,7 +46,7 @@ void readCameraBuffer() {
 
   uint32_t bytesRead = 0;
   while (bytesRead < totalLength) {
-    int read = myCAM.readBuff(imageBuffer + bytesRead, min(static_cast<uint32_t>(100), totalLength - bytesRead));
+    int read = myCAM.readBuff(imageBuffer + bytesRead, min(static_cast<uint32_t>(200), totalLength - bytesRead));
     if (read < 0) {
       Serial.println(F("Fehler beim Lesen des Bildpuffers."));
       free(imageBuffer);

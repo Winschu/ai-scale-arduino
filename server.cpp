@@ -1,5 +1,4 @@
 #include "server.h"
-
 #include "paper.h"
 
 #define SECRET_SSID "MARCEL-OMEN-LAP-2970"
@@ -7,8 +6,6 @@
 
 char ssid[] = SECRET_SSID;  // your network SSID (name)
 char pass[] = SECRET_PASS;  // your network password (use for WPA, or use as key for WEP)
-
-IPAddress serverIP;
 
 char serverAddress[] = "hs.bandowski.dev";  // server address
 
@@ -23,19 +20,6 @@ char HOST_NAME[] = "hs.bandowski.dev";
 String PATH_NAME = "/upload_image";
 
 void setupWifi() {
-  // check for the WiFi module:
-  if (WiFi.status() == WL_NO_MODULE) {
-    Serial.println("Communication with WiFi module failed!");
-    // don't continue
-    while (true)
-      ;
-  }
-
-  String fv = WiFi.firmwareVersion();
-  if (fv < WIFI_FIRMWARE_LATEST_VERSION) {
-    Serial.println("Please upgrade the firmware");
-  }
-
   // attempt to connect to WiFi network:
   while (status != WL_CONNECTED) {
     Serial.print("Attempting to connect to Network named: ");
@@ -71,14 +55,6 @@ long pingServer(const char* host, int port) {
 }
 
 void sendToServer(char* base64, char* weight) {
-  uint32_t postDataLength = strlen(base64) + strlen(weight) + 1 + 10;
-
-  Serial.print(F("Try to connect to Server: "));
-  Serial.println(serverAddress);
-
-  Serial.print(F("Post Data Length: "));
-  Serial.println(postDataLength);
-
   long pingTime = pingServer(HOST_NAME, HTTP_PORT);
   if (pingTime >= 0) {
     Serial.print(F("Ping successful! Response time: "));
@@ -88,114 +64,49 @@ void sendToServer(char* base64, char* weight) {
     Serial.println("Ping failed!");
   }
 
-  int serverConnection = client.connect(HOST_NAME, HTTP_PORT);
+  Serial.println("making POST request");
+  char contentType[] = "application/x-www-form-urlencoded";
 
-  Serial.print("Server Connection: ");
-  Serial.println(serverConnection);
+  // Ausgabe der Längen von base64 und weight
+  Serial.print("Length of base64: ");
+  Serial.println(strlen(base64));
+  Serial.print("Length of weight: ");
+  Serial.println(strlen(weight));
 
-  if (serverConnection) {
-    Serial.print(F("Connected to server: "));
-    Serial.println(client.connected());
+  // Fügen Sie den base64Header aus PROGMEM hinzu
+  char base64WithHeader[strlen_P(base64Header) + strlen(base64) + 1];
+  strcpy_P(base64WithHeader, base64Header);
+  strcat(base64WithHeader, base64);
 
-    Serial.println(F("Sending HTTP header..."));
-    Serial.println(HTTP_METHOD);
+  // Berechnen Sie die Länge der POST-Daten
+  int postDataLength = strlen("image_data=") + strlen(base64WithHeader) + strlen("&weight=") + strlen(weight);
 
-    client.print(HTTP_METHOD);
-    client.print(" ");
-    client.print(PATH_NAME);
-    client.println(" HTTP/1.1");
-    client.print("Host: ");
-    client.println(HOST_NAME);
-    client.println("Content-Type: application/x-www-form-urlencoded");
-    client.println();
-    client.print("Content-Length: ");
-    client.println(postDataLength);
-    client.println("Connection: close");
+  char postData[postDataLength + 100];  // Array für die POST-Daten
 
-    // Überprüfen, ob die Header erfolgreich gesendet wurden
-    if (!client.connected()) {
-      Serial.println(F("Fehler beim Senden der Header"));
-      return;
-    }
+  // Formatieren Sie die POST-Daten mit sprintf
+  sprintf(postData, "image_data=%s&weight=%s", base64WithHeader, weight);
 
-    delay(1000);
+  Serial.print(F("Post Data Length: "));
+  Serial.println(strlen(postData));
 
-    Serial.print(F("Free Memory after HTTP Header Data: "));
-    Serial.println(freeMemory());
+  client.beginRequest();
+  client.post(PATH_NAME);
+  client.sendHeader("Content-Type", contentType);
+  client.sendHeader("Content-Length", strlen(postData));
+  client.beginBody();
+  client.print(postData);  // Hier werden die POST-Daten in den Body der Anforderung geschrieben
+  client.endRequest();
 
-    Serial.println(F("Sending Body data..."));
+  int statusCode = client.responseStatusCode();
+  Serial.print("Status code: ");
+  Serial.println(statusCode);
 
-    client.print("image_data=");
-    client.print(base64);
-    client.print("&weight=");
-    client.println(weight);
+  // Verwenden Sie ein char-Array anstelle eines String-Objekts für die Antwort
+  char response[client.available() + 1];
+  int bytesRead = client.read((uint8_t*)response, client.available());
+  response[bytesRead] = '\0';  // Nullterminator hinzufügen
+  Serial.print("Response: ");
+  Serial.println(response);
 
-    Serial.print(F("Free Memory after HTTP Body Data: "));
-    Serial.println(freeMemory());
-
-    // Eine kurze Verzögerung, um sicherzustellen, dass der Body vollständig gesendet wurde
-    delay(1000);
-
-    // Body senden
-
-    // Warten, bis Daten vom Server empfangen wurden
-    unsigned long timeout = millis() + 5000; // Timeout nach 5 Sekunden
-    while (millis() < timeout) {
-      if (client.available()) {
-        // Daten vom Server empfangen
-        break;
-      }
-    }
-
-    // Überprüfen, ob Daten empfangen wurden oder das Timeout erreicht wurde
-    if (millis() >= timeout) {
-      Serial.println(F("Timeout beim Warten auf Daten vom Server"));
-    } else {
-      // Daten erfolgreich empfangen, Verbindung schließen
-      client.stop();
-      Serial.println(F("Daten erfolgreich empfangen, Verbindung geschlossen"));
-    }
-
-
-    const size_t maxDataLength = 4096;  // Maximal zulässige Länge der empfangenen Daten
-    char receivedData[maxDataLength];   // Puffer zum Speichern der empfangenen Daten
-    size_t dataIndex = 0;               // Index für das Hinzufügen von Zeichen in den Puffer
-
-    while ((client.connected() || client.available()) && dataIndex < maxDataLength - 1) {
-      if (client.available()) {
-        char c = client.read();
-        receivedData[dataIndex] = c;
-        dataIndex++;
-      } else {
-        Serial.println(F("Client not available anymore"));
-      }
-    }
-
-    // Nullterminator hinzufügen, um den Puffer als eine gültige Zeichenkette zu beenden
-    receivedData[dataIndex] = '\0';
-
-    // Überprüfe, ob Daten empfangen wurden, bevor sie gedruckt werden
-    if (dataIndex > 0) {
-      Serial.println(receivedData);
-    } else {
-      Serial.println("No data received!");
-    }
-
-    // the server's disconnected, stop the client:
-    client.stop();
-    Serial.println();
-    Serial.println("disconnected");
-  } else {  // if not connected:
-    Serial.println(F("connection failed on "));
-    Serial.print(HOST_NAME);
-    Serial.print(" @ ");
-    Serial.println(HTTP_PORT);
-  }
-
-  if (WiFi.hostByName(serverAddress, serverIP)) {
-    Serial.print("Server IP Address: ");
-    Serial.println(serverIP.toString());
-  } else {
-    Serial.println("Failed to resolve server address");
-  }
+  //delay(10000);
 }
