@@ -1,8 +1,5 @@
 #include "paper.h"
 
-#define COLORED 0
-#define UNCOLORED 1
-
 unsigned char image[1024];
 Epd epd;
 Paint paint(image, 0, 0);
@@ -50,8 +47,6 @@ void drawQRCode(char* content) {
 
   Serial.print(F("Free Memory before QR-Code init: "));
   Serial.println(freeMemory());
-
-  const char *data = "Hello, world!";
 
   qrcode_initText(&qrcode, qrcodeData, 8, ECC_LOW, content);
 

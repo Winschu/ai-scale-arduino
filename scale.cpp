@@ -1,0 +1,7 @@
+void setupScale() {
+
+}
+
+void recordWeight() {
+  
+}

@@ -1,7 +1,5 @@
 #include "camera.h"
-#include "server.h"
 
-const int MEGA_CS = 6;
 Arducam_Mega myCAM(MEGA_CS);
 ArducamLink myUart;
 uint32_t totalLength;

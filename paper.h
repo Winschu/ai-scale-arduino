@@ -11,6 +11,9 @@
 #include "Base64.h"
 #include <MemoryFree.h>
 
+#define COLORED 0
+#define UNCOLORED 1
+
 void setupPaper();
 void drawQRCode(char* content);
 void displayFrame();

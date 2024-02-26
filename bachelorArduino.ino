@@ -18,26 +18,17 @@ void setupAll() {
 void setup() {
   Serial.begin(115200);
 
-  Serial.print(F("Free Memory at Start: "));
-  Serial.println(freeMemory());
-
   setupAll();
-
-  Serial.print(F("Free Memory after inital Setup: "));
-  Serial.println(freeMemory());
 
   showDanger();
 
   char* base64 = setupCamera();
 
-  Serial.print(F("Free Memory after Camera: "));
-  Serial.println(freeMemory());
-
   if (base64 == nullptr) {
     Serial.println(F("Base 64 Null-Pointer returnd"));
   }
 
-  char finalWeight[5];
+  char* finalWeight = recordWeight();
 
   char* response = sendToServer(base64, finalWeight);
 
